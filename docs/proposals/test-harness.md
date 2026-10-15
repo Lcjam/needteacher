@@ -111,7 +111,7 @@ v1(Claude) → 1차(Codex T-001, agy T-002) → 사용자 결정 → v2 → 2차
 | agy 훅 `.agents/hooks.json` | 작성(T-008), 경로 수정 | `.agents/`에서 실행해 차단 확인. agy 재시작 후 실측 필요 |
 | worker 훅·종료 게이트 | 작성 | 세션 재시작 후 worker가 로드되면 실측 필요 |
 | 백엔드 골격 + Gradle 게이트 | 완료 | 단위 12(ArchUnit 10 포함), IT 11(PostgreSQL, 2개 클래스·음성 인수 6건·가드 없는 대조 1건 포함), PIT 2/2. Windows `integrationTest check` 59초 통과(T-026). assertion 약화 시 PIT 0%, 형식 위반·IT 0개 시 실패 확인 |
-| CI·ruleset·GitHub App | 작성(ci.yml) / 미설정 | 저장소 생성 후 `docs/setup.md` |
+| CI·ruleset·GitHub App | 완료 | `Lcjam/needteacher`. CI 3 job 통과(9b0eea2), ruleset `main-protection`(id 25150752, 우회 없음)에서 main 직접 push 거절 확인, App `needteacher-agent` 토큰으로 PR |
 
 리뷰(T-007~T-036)와 구현 중 막은 구멍:
 - 명령 우회: wmux `repl_run`·`terminal_send`, 인터프리터 한 줄 코드(조각낸 경로 포함), 명령 안의 `cd`·`git -C`, `git clean`, Gradle 초기화 스크립트(`-I`, `~/.gradle/init.*`), `--exclude-task`, Gradle 프로젝트 속성·JVM 옵션 환경 변수(`JDK_JAVA_OPTIONS`), 훅 끄기(`.claude/settings.local.json`, 홈 에이전트 설정).
