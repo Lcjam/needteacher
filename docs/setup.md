@@ -73,7 +73,19 @@ gitleaks version
 
 서버(GitHub) 레벨에서 관리자 우회 없이 테스트 및 보호 파일 리뷰를 강제합니다.
 
-### 설정 단계별 절차
+> **2절(GitHub App)을 먼저 끝내세요.** GitHub에서는 자기 PR을 스스로 승인할 수 없습니다. App 없이 이 ruleset을 켜면 PR 작성자도 승인자도 Lcjam뿐이라 모든 병합이 막힙니다. 에이전트는 App 이름으로 PR을 올리고 사용자가 승인합니다.
+
+### 명령 한 줄로 적용
+
+아래 웹 절차와 같은 내용이 `docs/ruleset-main.json`에 있습니다. 필수 검사는 GitHub Actions 앱(id 15368)이 보낸 것만 인정합니다.
+
+```
+gh api -X POST repos/Lcjam/needteacher/rulesets --input docs/ruleset-main.json
+```
+
+에이전트 훅은 ruleset 변경 명령을 막으므로 사용자가 직접 실행합니다 (Claude Code에서는 `!` 접두사).
+
+### 설정 단계별 절차 (웹)
 1. `needteacher` 저장소 페이지 → 상단 **Settings** 탭 클릭.
 2. 좌측 사이드바 **Rules** → **Rulesets** 클릭.
 3. **New ruleset** 드롭다운 클릭 → **New branch ruleset** 선택.
