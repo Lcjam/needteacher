@@ -19,8 +19,42 @@ import xml.etree.ElementTree as ET
 LINE, BRANCH, MUTATION = 0.90, 0.85, 0.80
 # build.gradle.kts의 커버리지·뮤테이션 제외 목록과 같아야 한다
 EXCLUDED = {"kr/needteacher/BackendApplication"}
+# PIT 뮤테이션만 면제 (JaCoCo 커버리지는 유지). build.gradle.kts의 excludedClasses와 정확히 일치해야 함
+MUTATION_EXEMPT = {"kr/needteacher/security/SecurityConfig"}
 # 실행 코드: 클래스류 선언 또는 메서드·생성자 본문 (인터페이스의 default/static 메서드 포함)
 HAS_CODE = re.compile(r"\b(class|enum|record)\s+\w+|\)\s*(throws\s[^{;]*)?\{|\bstatic\s*\{")
+
+
+def find_build_gradle(src):
+    cur = os.path.abspath(src)
+    for _ in range(5):
+        candidate = os.path.join(cur, "build.gradle.kts")
+        if os.path.isfile(candidate):
+            return candidate
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            break
+        cur = parent
+    return None
+
+
+def check_gradle_sync(build_gradle):
+    if not build_gradle or not os.path.isfile(build_gradle):
+        return [f"{build_gradle or 'build.gradle.kts'}: build.gradle.kts 파일을 찾을 수 없음"]
+    with open(build_gradle, encoding="utf-8", errors="replace") as fh:
+        text = fh.read()
+    # set을 두 번 쓰거나 .add()로 덧붙이면 Gradle은 뒤의 값을 쓰므로, 이름 자체가 한 번만 나와야 한다
+    if len(re.findall(r"\bexcludedClasses\b", text)) > 1:
+        return [f"{build_gradle}: pitest excludedClasses가 여러 번 나타남 (정확히 1번이어야 함)"]
+    matches = re.findall(r'excludedClasses\.set\(setOf\(([^)]+)\)\)', text)
+    if len(matches) == 0:
+        return [f"{build_gradle}: pitest excludedClasses 설정을 찾을 수 없음"]
+    classes = set(re.findall(r'"([^"]+)"', matches[0]))
+    gradle_classes = {c.replace(".", "/") for c in classes}
+    expected = EXCLUDED | MUTATION_EXEMPT
+    if gradle_classes != expected:
+        return [f"Gradle excludedClasses와 Python 제외/면제 목록 불일치: gradle={sorted(gradle_classes)}, python={sorted(expected)}"]
+    return []
 
 
 # 설정으로 실제 DB 검증을 끄는 것 (T-013, T-014, T-020). 테스트 쪽은 TestcontainersConfiguration이 DB를 대신하므로 덮어쓸 이유가 없다.
@@ -122,26 +156,34 @@ def jacoco_files(jacoco):
 
 
 def mutation_files(mutations):
-    """{패키지/파일명: (detected, total)}, 프로젝트 전체 (detected, total). NON_VIABLE 제외"""
+    """{패키지/파일명: (detected, total)}, 프로젝트 전체 (detected, total), {패키지/파일명: set(mutatedClass)}. NON_VIABLE 제외"""
     files, det_all, tot_all = {}, 0, 0
+    classes_by_file = {}
     if not os.path.exists(mutations):
-        return None, None
+        return None, None, {}
     for m in ET.parse(mutations).getroot().iter("mutation"):
         if m.get("status") == "NON_VIABLE":
             continue
-        pkg = (m.findtext("mutatedClass") or "").rsplit(".", 1)[0].replace(".", "/")
+        mutated_class = m.findtext("mutatedClass") or ""
+        pkg = mutated_class.rsplit(".", 1)[0].replace(".", "/")
         key = pkg + "/" + (m.findtext("sourceFile") or "").rsplit(".", 1)[0]
         det, tot = files.get(key, (0, 0))
         hit = m.get("detected") == "true"
         files[key] = (det + hit, tot + 1)
         det_all, tot_all = det_all + hit, tot_all + 1
-    return files, (det_all, tot_all)
+        if key not in classes_by_file:
+            classes_by_file[key] = set()
+        if mutated_class:
+            classes_by_file[key].add(mutated_class)
+    return files, (det_all, tot_all), classes_by_file
 
 
-def problems(jacoco, mutations, src, changed, baseline=None):
+def problems(jacoco, mutations, src, changed, baseline=None, build_gradle=None):
     found = []
+    bg = build_gradle or find_build_gradle(src)
+    found.extend(check_gradle_sync(bg))
     cov_files, cov_total = jacoco_files(jacoco)
-    mut_files, mut_total = mutation_files(mutations)
+    mut_files, mut_total, mut_classes = mutation_files(mutations)
     for f in changed:
         if f in EXCLUDED:
             continue
@@ -157,6 +199,15 @@ def problems(jacoco, mutations, src, changed, baseline=None):
                 found.append(f"{f}: {kind} {r:.0%} < {need:.0%}")
         if mut_files is None:
             found.append(f"{f}: 뮤테이션 리포트 없음")
+            continue
+        if f in MUTATION_EXEMPT:
+            exempt_class = f.replace("/", ".")
+            classes = mut_classes.get(f, set())
+            for c in sorted(classes):
+                if c == exempt_class:
+                    found.append(f"{f}: 면제 클래스({c})의 변이가 리포트에 나타남")
+                else:
+                    found.append(f"{f}: 면제 소스 파일에 비면제 클래스({c}) 변이가 있음")
             continue
         detected, total = mut_files.get(f, (0, 0))
         line_cov = ratio(*cov.get("LINE", (0, 0)))
@@ -182,6 +233,9 @@ def problems(jacoco, mutations, src, changed, baseline=None):
 
 def self_test():
     d = tempfile.mkdtemp()
+    bg_init = os.path.join(d, "build.gradle.kts")
+    with open(bg_init, "w", encoding="utf-8") as f:
+        f.write('excludedClasses.set(setOf("kr.needteacher.BackendApplication", "kr.needteacher.security.SecurityConfig"))\n')
     src = os.path.join(d, "src")
     os.makedirs(os.path.join(src, "a"))
     jacoco, muts, base = (os.path.join(d, n) for n in ("jacoco.xml", "mutations.xml", "baseline.txt"))
@@ -291,6 +345,75 @@ def self_test():
     assert any("allow-bean-definition-overriding" in p for p in config_problems(b))
     os.remove(os.path.join(b, "src/main/resources/application.yml"))
     assert config_problems(b) == []
+    # T-047/T-048: MUTATION_EXEMPT 및 Gradle sync 자체 검사
+    # (a) 면제 파일 LINE 89% 실패, BRANCH 84% 실패, 90/85 통과
+    sec_exempt = "kr/needteacher/security/SecurityConfig"
+
+    def write_sec(line_cov, branch_cov):
+        with open(jacoco, "w", encoding="utf-8") as f:
+            f.write(f"""<report><package name="kr/needteacher/security">
+<sourcefile name="SecurityConfig.java">
+<counter type="LINE" missed="{100 - line_cov}" covered="{line_cov}"/>
+<counter type="BRANCH" missed="{100 - branch_cov}" covered="{branch_cov}"/>
+</sourcefile></package>
+<counter type="LINE" missed="0" covered="100"/>
+</report>""")
+        with open(muts, "w", encoding="utf-8") as f:
+            f.write("<mutations></mutations>")
+
+    write_sec(89, 85)
+    assert any("LINE" in p for p in problems(jacoco, muts, src, [sec_exempt]))
+    write_sec(90, 84)
+    assert any("BRANCH" in p for p in problems(jacoco, muts, src, [sec_exempt]))
+    write_sec(90, 85)
+    assert problems(jacoco, muts, src, [sec_exempt]) == []
+
+    # (b) 일반 파일 mutation 79% 실패
+    write(9, 79, 21)
+    assert any("뮤테이션" in p for p in problems(jacoco, muts, src, ["a/New"]))
+
+    # (c) 같은 파일 SecurityConfig$Inner 또는 별도 최상위 클래스 변이 발견 시 실패
+    write_sec(90, 85)
+    with open(muts, "w", encoding="utf-8") as f:
+        f.write('<mutations><mutation detected="true" status="KILLED"><sourceFile>SecurityConfig.java</sourceFile><mutatedClass>kr.needteacher.security.SecurityConfig$Inner</mutatedClass></mutation></mutations>')
+    assert any("비면제 클래스" in p for p in problems(jacoco, muts, src, [sec_exempt]))
+
+    with open(muts, "w", encoding="utf-8") as f:
+        f.write('<mutations><mutation detected="true" status="KILLED"><sourceFile>SecurityConfig.java</sourceFile><mutatedClass>kr.needteacher.security.OtherClass</mutatedClass></mutation></mutations>')
+    assert any("비면제 클래스" in p for p in problems(jacoco, muts, src, [sec_exempt]))
+
+    with open(muts, "w", encoding="utf-8") as f:
+        f.write('<mutations><mutation detected="true" status="KILLED"><sourceFile>SecurityConfig.java</sourceFile><mutatedClass>kr.needteacher.security.SecurityConfig</mutatedClass></mutation></mutations>')
+    assert any("면제 클래스(kr.needteacher.security.SecurityConfig)의 변이가 리포트에 나타남" in p for p in problems(jacoco, muts, src, [sec_exempt]))
+
+    # (d) 목록 불일치·mutation XML 누락 시 실패
+    bg_fake = os.path.join(d, "fake.gradle.kts")
+    with open(bg_fake, "w", encoding="utf-8") as f:
+        f.write('excludedClasses.set(setOf("kr.needteacher.BackendApplication"))\n')  # SecurityConfig 누락
+    assert any("Gradle excludedClasses와 Python 제외/면제 목록 불일치" in p for p in problems(jacoco, muts, src, [], build_gradle=bg_fake))
+
+    with open(bg_fake, "w", encoding="utf-8") as f:
+        f.write('excludedClasses.set(setOf("kr.needteacher.BackendApplication", "kr.needteacher.security.SecurityConfig"))\n')
+    assert check_gradle_sync(bg_fake) == []
+
+    # P1: build.gradle.kts를 찾을 수 없을 때 실패
+    assert any("찾을 수 없음" in p for p in check_gradle_sync(os.path.join(d, "missing.gradle.kts")))
+
+    # P2: excludedClasses 설정이 2번 이상 나타날 때 실패
+    bg_dup = os.path.join(d, "dup.gradle.kts")
+    with open(bg_dup, "w", encoding="utf-8") as f:
+        f.write('excludedClasses.set(setOf("kr.needteacher.BackendApplication", "kr.needteacher.security.SecurityConfig"))\n'
+                'excludedClasses.set(setOf("kr.needteacher.BackendApplication"))\n')
+    assert any("여러 번 나타남" in p for p in check_gradle_sync(bg_dup))
+    with open(bg_dup, "w", encoding="utf-8") as f:
+        f.write('excludedClasses.set(setOf("kr.needteacher.BackendApplication", "kr.needteacher.security.SecurityConfig"))\n'
+                'excludedClasses.add("kr.needteacher.foo.Logic")\n')
+    assert any("여러 번 나타남" in p for p in check_gradle_sync(bg_dup))
+
+    # mutation XML 누락 시 면제 파일이라도 실패
+    write_sec(90, 85)
+    assert any("뮤테이션 리포트 없음" in p for p in problems(jacoco, os.path.join(d, "nonexistent.xml"), src, [sec_exempt]))
+
     print("quality_gate: all checks passed")
 
 
