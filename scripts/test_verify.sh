@@ -7,6 +7,7 @@ trap 'rm -rf "$t"' EXIT
 mkdir -p "$t/bin" "$t/repo/scripts" "$t/repo/quality" "$t/repo/backend/src/test/java"
 printf '#!/bin/sh\nexit ${FAKE_LEAK:-0}\n' >"$t/bin/gitleaks" && chmod +x "$t/bin/gitleaks"
 export PATH="$t/bin:$PATH"
+unset CI  # 로컬 실행을 흉내 낸다 (0번 로컬 훅 검사는 CI에서 건너뜀)
 cp "$here/verify.sh" "$here/quality_gate.py" "$t/repo/scripts/"
 cd "$t/repo"
 git init -q && git config user.email t@t && git config user.name t && git config core.autocrlf false

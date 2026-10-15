@@ -88,7 +88,8 @@ def main():
 
     edit = lambda p: {"tool_name": "Edit", "tool_input": {"file_path": p}}
     assert denied(run(root, "claude", edit(os.path.join(root, ".github", "workflows", "ci.yml"))))
-    assert denied(run(root, "claude", edit("/" + root[0].lower() + root[2:].replace("\\", "/") + "/scripts/guard.py")))
+    if os.name == "nt":  # Git Bash 경로(/c/...)는 Windows에서만 의미가 있다
+        assert denied(run(root, "claude", edit("/" + root[0].lower() + root[2:].replace("\\", "/") + "/scripts/guard.py")))
     assert run(root, "claude", edit(os.path.join(root, "backend/src/main/java/A.java"))) is None
     arch = "backend/src/test/java/kr/needteacher/architecture/LayerTest.java"
     assert denied(run(root, "claude", edit(os.path.join(root, arch))))
