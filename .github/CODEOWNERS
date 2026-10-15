@@ -1,0 +1,20 @@
+# 보호 파일: 바꾸려면 사용자(Lcjam) 리뷰 필수. scripts/guard.py가 이 목록으로 에이전트 수정을 막는다.
+# 명세: docs/proposals/test-harness.md 5절
+/scripts/ @Lcjam
+/.githooks/ @Lcjam
+/.github/ @Lcjam
+/quality/ @Lcjam
+/.claude/ @Lcjam
+/.codex/ @Lcjam
+/.agents/ @Lcjam
+/.gitattributes @Lcjam
+/.gitleaks.toml @Lcjam
+/.gitleaksignore @Lcjam
+/backend/build.gradle.kts @Lcjam
+/backend/settings.gradle.kts @Lcjam
+/backend/gradle.properties @Lcjam
+/backend/gradle/ @Lcjam
+/backend/gradlew* @Lcjam
+/backend/src/test/java/**/architecture/ @Lcjam
+/backend/src/test/java/kr/needteacher/TestcontainersConfiguration.java @Lcjam
+/backend/src/acceptance/ @Lcjam

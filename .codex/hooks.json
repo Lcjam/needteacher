@@ -1,0 +1,19 @@
+{
+  "description": "Route Codex tool calls through the repository guard. Local feedback only; CI is authoritative.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"__import__('runpy').run_path(__import__('os').path.join(__import__('subprocess').check_output(['git','rev-parse','--show-toplevel'],text=True).strip(),'scripts','guard.py'),run_name='__main__')\" --agent codex",
+            "commandWindows": "py -3 -c \"__import__('runpy').run_path(__import__('os').path.join(__import__('subprocess').check_output(['git','rev-parse','--show-toplevel'],text=True).strip(),'scripts','guard.py'),run_name='__main__')\" --agent codex",
+            "timeout": 10,
+            "statusMessage": "Checking repository guard"
+          }
+        ]
+      }
+    ]
+  }
+}

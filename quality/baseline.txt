@@ -1,0 +1,6 @@
+# 래칫 바닥값: 프로젝트 전체 수치가 이 아래로 내려가면 verify full 실패 (scripts/quality_gate.py).
+# 내릴 수 없고 올리기만 한다. 보호 파일이라 바꾸려면 사용자(Lcjam) 리뷰가 필요하다.
+# 첫 기능을 병합할 때 verify full이 출력하는 "현재 프로젝트 수치"를 내림해 올린다 (사용자 결정, docs/proposals/test-harness.md).
+line=0.90
+branch=0.85
+mutation=0.80

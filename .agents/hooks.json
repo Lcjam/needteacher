@@ -1,0 +1,15 @@
+{
+  "guard": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python ../scripts/guard.py --agent agy"
+          }
+        ]
+      }
+    ]
+  }
+}

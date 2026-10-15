@@ -1,0 +1,72 @@
+# 필수 상태 검사: verify-full, gitleaks (main ruleset). job에 if·continue-on-error를 두지 않는다.
+# 명세: docs/proposals/test-harness.md 6·10절
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify-full:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: gradle/actions/wrapper-validation@v6  # gradle-wrapper.jar 변조 검사
+      - uses: actions/setup-python@v6  # 훅 명령이 부르는 `python`을 PATH에 (test_hooks.py)
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - name: gitleaks 설치
+        run: |
+          mkdir -p "$HOME/bin"
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | tar -xz -C "$HOME/bin" gitleaks
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+      - name: self-check
+        run: |
+          python3 scripts/test_guard.py
+          python3 scripts/test_hooks.py
+          python3 scripts/quality_gate.py --self-test
+          bash scripts/test_verify.sh
+          bash scripts/gh-app-token.sh --self-test
+      - name: verify full
+        env:
+          VERIFY_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: bash scripts/verify.sh full
+
+  # 하네스 스크립트가 Windows(Git Bash·Python)에서도 맞게 도는지만 본다.
+  # GitHub Windows 러너는 Linux 컨테이너를 못 띄워 Testcontainers 빌드는 불가 → 빌드는 ubuntu full과 개발 PC pre-commit이 맡는다.
+  self-check-windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+      - name: self-check
+        run: |
+          python scripts/test_guard.py
+          python scripts/test_hooks.py
+          python scripts/quality_gate.py --self-test
+          bash scripts/test_verify.sh
+          bash scripts/gh-app-token.sh --self-test
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

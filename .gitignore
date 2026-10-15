@@ -1,0 +1,8 @@
+# 사용자만 만드는 하네스 잠금 해제 파일 (scripts/guard.py)
+.harness-unlock
+build/
+.gradle/
+__pycache__/
+.idea/
+*.iml
+.DS_Store

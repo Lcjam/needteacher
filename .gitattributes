@@ -1,0 +1,16 @@
+* text=auto
+*.sh text eol=lf
+# 체크아웃 설정(core.autocrlf)과 무관하게 Spotless·verify가 같은 결과를 내도록 소스·설정은 LF로 고정 (T-015)
+*.java text eol=lf
+*.kts text eol=lf
+*.properties text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sql text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+.githooks/* text eol=lf
+gradlew text eol=lf
+**/gradlew text eol=lf
+*.bat text eol=crlf
+*.jar binary
