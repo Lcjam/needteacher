@@ -28,7 +28,7 @@ Java 17 / Spring Boot 4.1.1 / Gradle 9.7 (Kotlin DSL) / PostgreSQL. 품질 기�
 
 ## 테스트
 
-- 단위 테스트 `*Test.java`: Spring 없이 생성자로 조립. 뮤테이션은 단위 테스트만 본다.
+- 단위 테스트 `*Test.java`: Spring 없이 생성자로 조립. 뮤테이션은 단위 테스트만 본다. `SecurityConfig`만 PIT 면제이며 JaCoCo line/branch와 실제 필터 체인 IT는 유지한다. 같은 소스 파일에 다른 클래스를 두지 않고, 설정 클래스의 필드·직접 작성한 생성자를 두지 않는다. 401/403 핸들러는 별도 클래스·단위 테스트로 검증한다. 새 경로/역할/CSRF 정책에는 허용·거부 HTTP 테스트를 함께 추가한다. 면제 목록 변경은 보호 파일 리뷰가 필요하다.
 - 통합 테스트 `*IT.java`: `@Import(TestcontainersConfiguration.class)` 필수(실제 PostgreSQL 사용). H2 등 인메모리 DB 금지.
 - IT에서 `@MockitoBean`·`@MockitoSpyBean`·`@TestBean` 빈 바꿔치기 및 가짜 DataSource(`HikariDataSource` 등 하위 타입 포함) 빈 재정의 금지(ArchUnit `TestIntegrityTest`가 강제). 외부 연동은 목 대신 WireMock·Testcontainers로 대체한다.
 - 테스트에서 DB 설정 덮어쓰기 금지: 테스트 리소스(`src/test/resources/`)나 `@TestPropertySource` 등으로 Flyway 끄기, `ddl-auto` 변경, 인메모리 DB 설정 금지(모든 IT 컨텍스트에서 `TestcontainersConfiguration`의 런타임 검사 + `quality_gate.py` 1차 스캔).

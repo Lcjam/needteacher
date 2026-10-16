@@ -24,6 +24,7 @@ repositories {
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-flyway")
+    implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.flywaydb:flyway-database-postgresql")
@@ -119,7 +120,7 @@ pitest {
         else providers.gradleProperty("pitTargetClasses").map { it.split(",").toSet() }.orElse(setOf("kr.needteacher.*")).get())
     // targetTests 기본값은 targetClasses라서, 변경 클래스만 지정하면 테스트도 같은 이름으로 좁혀져 0건이 된다
     targetTests.set(setOf("kr.needteacher.*"))
-    excludedClasses.set(setOf("kr.needteacher.BackendApplication"))
+    excludedClasses.set(setOf("kr.needteacher.BackendApplication", "kr.needteacher.security.SecurityConfig"))
     excludedTestClasses.set(setOf("*IT"))
     // DEFAULTS보다 많은 변이(조건 제거 등). 같은 호출 비교·assertNotNull·any()만 하는 약한 테스트를 생존 뮤턴트로 드러낸다 (T-013)
     mutators.set(setOf("STRONGER"))
