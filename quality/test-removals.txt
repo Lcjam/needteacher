@@ -1,2 +1,4 @@
 # 테스트를 지우거나 테스트 메서드 수를 줄이는 변경은 같은 변경에서 이 파일에 경로를 한 줄씩 추가해야 한다.
 # 이 파일은 보호 파일이라 사람(Lcjam) 리뷰를 거친다. 예전에 등록한 줄은 재사용되지 않는다 (scripts/verify.sh 3번).
+backend/src/test/java/kr/needteacher/architecture/DatabaseIntegrityGuard.java
+backend/src/test/java/kr/needteacher/architecture/DatabaseIntegrityIT.java
