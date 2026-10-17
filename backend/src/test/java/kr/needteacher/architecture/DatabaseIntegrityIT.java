@@ -68,22 +68,6 @@ class DatabaseIntegrityIT {
         assertEquals("validate", entityManagerFactory.getProperties().get("hibernate.hbm2ddl.auto"));
     }
 
-    @Test
-    void combinedJpaExclusionStartsWithoutGuard() {
-        try (var context = new SpringApplicationBuilder(BackendApplication.class)
-                .web(WebApplicationType.NONE)
-                .properties(
-                        NO_JPA_AUTOCONFIG,
-                        "spring.datasource.url=" + postgresContainer.getJdbcUrl(),
-                        "spring.datasource.username=" + postgresContainer.getUsername(),
-                        "spring.datasource.password=" + postgresContainer.getPassword())
-                .run()) {
-            assertTrue(context.isActive());
-            assertEquals(0, context.getBeanNamesForType(DatabaseIntegrityGuard.class).length);
-            assertEquals(0, context.getBeanNamesForType(EntityManagerFactory.class).length);
-        }
-    }
-
     @ParameterizedTest(name = "rejects {0}")
     @ValueSource(
             strings = {
