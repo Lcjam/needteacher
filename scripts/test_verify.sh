@@ -5,7 +5,15 @@ here=$(cd "$(dirname "$0")" && pwd)
 t=$(mktemp -d)
 trap 'rm -rf "$t"' EXIT
 mkdir -p "$t/bin" "$t/repo/scripts" "$t/repo/quality" "$t/repo/backend/src/test/java"
-printf '#!/bin/sh\nexit ${FAKE_LEAK:-0}\n' >"$t/bin/gitleaks" && chmod +x "$t/bin/gitleaks"
+cat >"$t/bin/gitleaks" <<'GITLEAKS'
+#!/bin/sh
+if [ "${CHECK_SNAPSHOT:-0}" = 1 ]; then
+  [ "$1" = dir ] && [ "$2" = . ] || exit 1
+  case "$PWD" in */snap) ;; *) exit 1 ;; esac
+fi
+exit "${FAKE_LEAK:-0}"
+GITLEAKS
+chmod +x "$t/bin/gitleaks"
 export PATH="$t/bin:$PATH"
 unset CI  # 로컬 실행을 흉내 낸다 (0번 로컬 훅 검사는 CI에서 건너뜀)
 cp "$here/verify.sh" "$here/quality_gate.py" "$t/repo/scripts/"
@@ -27,6 +35,7 @@ check() { # check <기대: 0 통과 | 1 실패> <설명>
 clean() { git reset -q --hard && git clean -qfd; }
 
 check 0 "깨끗한 상태"
+CHECK_SNAPSHOT=1 check 0 "gitleaks는 스냅샷 안에서 dir . 실행"
 printf '@Test void a(){}\n@TestInstance\n' >$T && git add $T && check 1 "@Test 감소 (@TestInstance는 세지 않음)"
 printf '@Test void a(){}\n@TestInstance\n// @Test void b(){}\n' >$T && git add $T && check 1 "주석 처리한 @Test는 세지 않음"
 printf '@Test void a(){}\n@TestInstance\n/*\n@Test void b(){}\n*/\n' >$T && git add $T && check 1 "여러 줄 주석 안의 @Test도 세지 않음"

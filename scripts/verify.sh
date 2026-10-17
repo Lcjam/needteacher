@@ -188,7 +188,7 @@ snap="$work/snap"
 mkdir "$snap"
 git archive "$tree" | tar -x -C "$snap"
 command -v gitleaks >/dev/null || fail "gitleaks 미설치 (docs/setup.md)"
-gitleaks dir "$snap" --no-banner --redact >&2 || fail "시크릿 탐지"
+(cd "$snap" && gitleaks dir . --no-banner --redact) >&2 || fail "시크릿 탐지"
 
 # 4-2. 설정으로 실제 DB 검증을 끄는 것 (T-013, T-014): 테스트 쪽 DB 설정 덮어쓰기, Flyway 끄기, ddl-auto 변경, 인메모리 DB
 if [[ -d $snap/backend ]]; then
